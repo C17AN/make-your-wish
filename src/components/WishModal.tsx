@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { AnimatePresence, motion } from "motion/react";
+import { GithubPicker } from "react-color";
 
 type WishModalProps = {
   isOpen: boolean;
@@ -88,15 +89,30 @@ export default function WishModal({
                 value={wishText}
                 onChange={(e) => setWishText(e.target.value)}
               />
-              <div className="field-row">
-                <label htmlFor="wish-color">카드 배경색</label>
-                <input
-                  id="wish-color"
-                  type="color"
-                  value={bgColor}
-                  onChange={(e) => setBgColor(e.target.value)}
-                  style={{ width: 48, height: 32, padding: 0, borderRadius: 6 }}
-                />
+              <div className="field-row" style={{ alignItems: "flex-start" }}>
+                <div style={{ minWidth: 88 }}>
+                  <div style={{ fontSize: 12, opacity: 0.8, marginBottom: 6 }}>
+                    카드 배경색
+                  </div>
+                  <GithubPicker
+                    triangle="hide"
+                    colors={[
+                      "#6b8bff",
+                      "#FF6900",
+                      "#FCB900",
+                      "#7BDCB5",
+                      "#00D084",
+                      "#8ED1FC",
+                      "#0693E3",
+                      "#ABB8C3",
+                      "#EB144C",
+                      "#F78DA7",
+                      "#9900EF",
+                    ]}
+                    color={bgColor}
+                    onChangeComplete={(c) => setBgColor(c.hex)}
+                  />
+                </div>
               </div>
               <label className="checkbox">
                 <input

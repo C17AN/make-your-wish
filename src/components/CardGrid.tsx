@@ -1,11 +1,17 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
+import { motion } from "motion/react";
 
 type CardGridProps = {
   wishes: string[];
   columns: number;
   bgColors?: (string | undefined)[];
   gradients?: (boolean | undefined)[];
+  onSelect?: (payload: {
+    text: string;
+    bgColor?: string;
+    isGradient?: boolean;
+  }) => void;
 };
 
 export default function CardGrid({
@@ -13,6 +19,7 @@ export default function CardGrid({
   columns,
   bgColors,
   gradients,
+  onSelect,
 }: CardGridProps) {
   const columnBuckets = useMemo(() => {
     const buckets: number[][] = Array.from(
@@ -26,6 +33,11 @@ export default function CardGrid({
     return buckets;
   }, [wishes, columns]);
 
+  const [hasMounted, setHasMounted] = useState(false);
+  useEffect(() => {
+    setHasMounted(true);
+  }, []);
+
   return (
     <div
       className="grid"
@@ -35,15 +47,27 @@ export default function CardGrid({
         const isUp = colIndex % 2 === 0;
         const speed = 20 + (colIndex % 3) * 6; // 20, 26, 32 px/s
         return (
-          <VirtualColumn
-            key={colIndex}
-            itemIndexes={colIdxs}
-            allWishes={wishes}
-            allBgColors={bgColors}
-            allGradients={gradients}
-            isUp={isUp}
-            speed={speed}
-          />
+          <motion.div
+            key={`col-wrap-${colIndex}`}
+            initial={hasMounted ? false : { opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{
+              type: "spring",
+              stiffness: 260,
+              damping: 24,
+              delay: colIndex * 0.08,
+            }}
+          >
+            <VirtualColumn
+              itemIndexes={colIdxs}
+              allWishes={wishes}
+              allBgColors={bgColors}
+              allGradients={gradients}
+              isUp={isUp}
+              speed={speed}
+              onSelect={onSelect}
+            />
+          </motion.div>
         );
       })}
     </div>
@@ -57,6 +81,7 @@ function VirtualColumn({
   allGradients,
   isUp,
   speed,
+  onSelect,
 }: {
   itemIndexes: number[];
   allWishes: string[];
@@ -64,6 +89,11 @@ function VirtualColumn({
   allGradients?: (boolean | undefined)[];
   isUp: boolean;
   speed: number;
+  onSelect?: (payload: {
+    text: string;
+    bgColor?: string;
+    isGradient?: boolean;
+  }) => void;
 }) {
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const [totalCount, setTotalCount] = useState(1200);
@@ -95,6 +125,24 @@ function VirtualColumn({
     };
   }, [itemIndexes.length]);
 
+  // 사용자 스크롤 차단
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+    };
+    const onTouchMove = (e: TouchEvent) => {
+      e.preventDefault();
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    el.addEventListener("touchmove", onTouchMove, { passive: false });
+    return () => {
+      el.removeEventListener("wheel", onWheel as any);
+      el.removeEventListener("touchmove", onTouchMove as any);
+    };
+  }, []);
+
   const virtualizer = useVirtualizer({
     count: totalCount,
     getScrollElement: () => scrollRef.current,
@@ -111,29 +159,40 @@ function VirtualColumn({
     if (!el) return;
     let raf = 0;
     let prev = performance.now();
-    setTimeout(() => {
+
+    const start = () => {
+      // kick-start and start loop
       try {
         el.scrollTop = 1;
         virtualizer.scrollToOffset(1);
       } catch {}
-    }, 50);
-    posRef.current = el.scrollTop || 0;
-    const step = () => {
-      const now = performance.now();
-      const dt = (now - prev) / 1000;
-      prev = now;
-      const delta = speed * dt;
-      const max = Math.max(0, virtualizer.getTotalSize() - el.clientHeight);
-      if (max > 0) {
-        posRef.current = isUp ? posRef.current + delta : posRef.current - delta;
-        if (posRef.current >= max - 1) posRef.current = 0;
-        if (posRef.current <= 0) posRef.current = max;
-        el.scrollTop = posRef.current;
-        virtualizer.scrollToOffset(posRef.current);
-      }
+      posRef.current = el.scrollTop || 0;
+      const step = () => {
+        const now = performance.now();
+        const dt = (now - prev) / 1000;
+        prev = now;
+        const delta = speed * dt;
+        const max = Math.max(0, virtualizer.getTotalSize() - el.clientHeight);
+        if (max > 0) {
+          posRef.current = isUp
+            ? posRef.current + delta
+            : posRef.current - delta;
+          if (posRef.current >= max - 1) posRef.current = 0;
+          if (posRef.current <= 0) posRef.current = max;
+          el.scrollTop = posRef.current;
+          virtualizer.scrollToOffset(posRef.current);
+        }
+        raf = requestAnimationFrame(step);
+      };
       raf = requestAnimationFrame(step);
     };
-    raf = requestAnimationFrame(step);
+
+    if (document.fonts && document.fonts.ready) {
+      document.fonts.ready.then(() => start());
+    } else {
+      setTimeout(start, 100);
+    }
+
     return () => cancelAnimationFrame(raf);
   }, [isUp, speed, virtualizer]);
 
@@ -169,7 +228,13 @@ function VirtualColumn({
                   paddingBottom: 12,
                 }}
               >
-                <article className="card" style={style}>
+                <article
+                  className="card"
+                  style={style}
+                  onClick={() =>
+                    onSelect?.({ text, bgColor: color, isGradient: grad })
+                  }
+                >
                   <p className="card__text">{text}</p>
                 </article>
               </div>

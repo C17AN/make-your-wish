@@ -3,6 +3,7 @@ import "./App.css";
 import Header from "./components/Header";
 import CardGrid from "./components/CardGrid";
 import WishModal from "./components/WishModal";
+import WishPreviewModal from "./components/WishPreviewModal";
 import { supabase, type WishDto } from "./lib/supabaseClient";
 
 function App() {
@@ -37,6 +38,12 @@ function App() {
   );
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [columns, setColumns] = useState(4);
+
+  const [preview, setPreview] = useState<{
+    text: string;
+    bgColor?: string;
+    isGradient?: boolean;
+  } | null>(null);
 
   // 초기 fetch
   useEffect(() => {
@@ -105,12 +112,20 @@ function App() {
           columns={columns}
           bgColors={bgColors}
           gradients={gradients}
+          onSelect={(p) => setPreview(p)}
         />
       </main>
       <WishModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         onSubmit={handleAddWish}
+      />
+      <WishPreviewModal
+        isOpen={!!preview}
+        text={preview?.text ?? ""}
+        bgColor={preview?.bgColor}
+        isGradient={preview?.isGradient}
+        onClose={() => setPreview(null)}
       />
     </div>
   );

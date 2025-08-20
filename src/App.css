@@ -52,12 +52,9 @@
 .col-scroll {
   height: 100%;
   width: 100%;
-  overflow: auto; /* 내부 스크롤 사용 (스크롤바는 전역에서 숨김) */
+  overflow: hidden; /* 사용자 스크롤 비활성화 */
   overscroll-behavior: contain;
-  scrollbar-width: none; /* Firefox */
-}
-.col-scroll::-webkit-scrollbar {
-  display: none; /* WebKit */
+  touch-action: none; /* 터치 스크롤 비활성화 */
 }
 .col-inner {
   display: grid;
@@ -153,6 +150,27 @@ body {
   padding: 20px;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
   will-change: transform, opacity;
+}
+
+.preview-wrap {
+  width: min(720px, 92vw);
+}
+.preview-card {
+  border-radius: 18px;
+  border: 1px solid color-mix(in oklab, canvasText 16%, transparent);
+  background: color-mix(in oklab, canvasText 8%, canvas 92%);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.35);
+  padding: 28px 26px;
+  transform-style: preserve-3d;
+}
+.preview-card__inner {
+  display: grid;
+  gap: 12px;
+}
+.preview-card__text {
+  margin: 0;
+  line-height: 1.5;
+  font-size: 16px;
 }
 .modal__title {
   margin: 0 0 12px;
