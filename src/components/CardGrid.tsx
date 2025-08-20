@@ -77,71 +77,95 @@ export default function CardGrid({
   );
 
   return (
-    <div className="grid" style={gridStyle}>
+    <div style={{ position: "relative" }}>
       <AnimatePresence mode="sync" initial={false}>
-        {isLoading
-          ? Array.from({ length: Math.max(1, columns) }).map((_, colIndex) => (
-              <motion.div
-                className="grid__col"
-                key={`skel-col-${colIndex}`}
-                initial={{ opacity: 1 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.25, ease: "easeOut" }}
-              >
-                <div className="col-scroll">
-                  <div style={{ position: "relative" }}>
-                    {Array.from({ length: 10 }).map((__, r) => (
-                      <div
-                        key={`skel-${colIndex}-${r}`}
-                        style={{ position: "relative", paddingBottom: 12 }}
-                      >
-                        <article className="card card--skeleton">
-                          <div className="skeleton-lines">
-                            <div className="skeleton-line" style={{ width: "80%" }} />
-                            <div className="skeleton-line" style={{ width: "60%" }} />
+        {isLoading && (
+          <motion.div
+            key="skeleton"
+            initial={{ opacity: 1 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.3, ease: "easeOut" }}
+            style={{ position: "absolute", inset: 0 }}
+          >
+            <div className="grid" style={gridStyle}>
+              {Array.from({ length: Math.max(1, columns) }).map(
+                (_, colIndex) => (
+                  <div className="grid__col" key={`skel-col-${colIndex}`}>
+                    <div className="col-scroll">
+                      <div style={{ position: "relative" }}>
+                        {Array.from({ length: 10 }).map((__, r) => (
+                          <div
+                            key={`skel-${colIndex}-${r}`}
+                            style={{ position: "relative", paddingBottom: 12 }}
+                          >
+                            <article className="card card--skeleton">
+                              <div className="skeleton-lines">
+                                <div
+                                  className="skeleton-line"
+                                  style={{ width: "80%" }}
+                                />
+                                <div
+                                  className="skeleton-line"
+                                  style={{ width: "60%" }}
+                                />
+                              </div>
+                            </article>
                           </div>
-                        </article>
+                        ))}
                       </div>
-                    ))}
+                    </div>
                   </div>
-                </div>
-              </motion.div>
-            ))
-          : columnBuckets.map((colIdxs, colIndex) => {
-              const isUp = colIndex % 2 === 0;
-              const speed = 18 + Math.random() * 10;
-              const isRevealed = revealed[colIndex] === true;
-              return (
-                <motion.div
-                  className="grid__col"
-                  key={`col-wrap-${colIndex}`}
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0 }}
-                  transition={{
-                    type: "spring",
-                    stiffness: 260,
-                    damping: 24,
-                    delay: isRevealed ? 0 : colIndex * 0.02,
-                  }}
-                  onAnimationComplete={() => {
-                    if (!isRevealed)
-                      setRevealed((prev) => ({ ...prev, [colIndex]: true }));
-                  }}
-                >
-                  <VirtualColumn
-                    itemIndexes={colIdxs}
-                    allWishes={wishes}
-                    allBgColors={bgColors}
-                    allGradients={gradients}
-                    isUp={isUp}
-                    speed={speed}
-                    onSelect={onSelect}
-                  />
-                </motion.div>
-              );
-            })}
+                )
+              )}
+            </div>
+          </motion.div>
+        )}
+        {!isLoading && (
+          <motion.div
+            key="content"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.3, ease: "easeOut" }}
+            style={{ position: "absolute", inset: 0 }}
+          >
+            <div className="grid" style={gridStyle}>
+              {columnBuckets.map((colIdxs, colIndex) => {
+                const isUp = colIndex % 2 === 0;
+                const speed = 18 + Math.random() * 10;
+                const isRevealed = revealed[colIndex] === true;
+                return (
+                  <motion.div
+                    key={`col-wrap-${colIndex}`}
+                    initial={false}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{
+                      type: "spring",
+                      stiffness: 260,
+                      damping: 24,
+                      delay: isRevealed ? 0 : colIndex * 0.02,
+                    }}
+                    onAnimationComplete={() => {
+                      if (!isRevealed)
+                        setRevealed((prev) => ({ ...prev, [colIndex]: true }));
+                    }}
+                  >
+                    <VirtualColumn
+                      itemIndexes={colIdxs}
+                      allWishes={wishes}
+                      allBgColors={bgColors}
+                      allGradients={gradients}
+                      isUp={isUp}
+                      speed={speed}
+                      onSelect={onSelect}
+                    />
+                  </motion.div>
+                );
+              })}
+            </div>
+          </motion.div>
+        )}
       </AnimatePresence>
     </div>
   );
