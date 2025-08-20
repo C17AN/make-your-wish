@@ -12,10 +12,12 @@
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   --header-height: 64px;
+  transition: background-color 300ms ease, color 300ms ease;
 }
 
 * {
   box-sizing: border-box;
+  user-select: none;
 }
 
 html,
@@ -28,4 +30,18 @@ body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
+}
+
+/* 테마 전환 시 주요 배경/테두리/텍스트의 부드러운 전환 */
+html,
+body,
+.app-header,
+.card,
+.modal,
+.preview-card,
+.textarea,
+.signature-box,
+.button {
+  transition: background-color 300ms ease, color 300ms ease,
+    border-color 300ms ease, background 300ms ease;
 }

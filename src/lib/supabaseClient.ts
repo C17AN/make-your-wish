@@ -9,6 +9,7 @@ export type WishRow = {
   text: string;
   bgColor?: string;
   isGradient?: boolean;
+  signatureDataUrl?: string;
 };
 
 // DTO that matches DB column names if present
@@ -16,5 +17,6 @@ export type WishDto = {
   text: string;
   bg_color?: string | null;
   is_gradient?: boolean | null;
+  signature_data_url?: string | null;
   created_at?: string;
 };

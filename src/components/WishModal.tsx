@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { GithubPicker } from "react-color";
+import { pickTextColor } from "../lib/utils/colorUtils";
 
 type WishModalProps = {
   isOpen: boolean;
@@ -9,6 +10,7 @@ type WishModalProps = {
     text: string;
     bgColor?: string;
     isGradient?: boolean;
+    signatureDataUrl?: string;
   }) => void;
 };
 
@@ -20,13 +22,29 @@ export default function WishModal({
   const [wishText, setWishText] = useState("");
   const [bgColor, setBgColor] = useState<string>("#6b8bff");
   const [isGradient, setIsGradient] = useState<boolean>(false);
+  const [isPickerOpen, setIsPickerOpen] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+
+  // color picker anchor
+  const pickerRef = useRef<HTMLDivElement | null>(null);
+
+  // signature canvas refs
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const drawingRef = useRef(false);
+  const lastPosRef = useRef<{ x: number; y: number } | null>(null);
 
   useEffect(() => {
     if (isOpen) {
-      // 약간의 지연 후 포커스 (모달 렌더 후)
       setTimeout(() => textareaRef.current?.focus(), 0);
+      requestAnimationFrame(() => resizeCanvas());
+      window.addEventListener("resize", resizeCanvas);
+      return () => window.removeEventListener("resize", resizeCanvas);
     }
+  }, [isOpen]);
+
+  // 모달 닫히면 피커도 닫기
+  useEffect(() => {
+    if (!isOpen) setIsPickerOpen(false);
   }, [isOpen]);
 
   useEffect(() => {
@@ -38,16 +56,102 @@ export default function WishModal({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [isOpen, onClose]);
 
+  function resizeCanvas() {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const parent = canvas.parentElement;
+    if (!parent) return;
+    const rect = parent.getBoundingClientRect();
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    canvas.width = Math.floor(rect.width * dpr);
+    canvas.height = Math.floor(160 * dpr);
+    canvas.style.width = `${rect.width}px`;
+    canvas.style.height = `160px`;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    ctx.scale(dpr, dpr);
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    ctx.lineWidth = 2.5;
+    ctx.strokeStyle = "#333";
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+  }
+
+  function getCanvasPos(e: React.PointerEvent<HTMLCanvasElement>) {
+    const canvas = canvasRef.current!;
+    const rect = canvas.getBoundingClientRect();
+    return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+  }
+
+  function onCanvasPointerDown(e: React.PointerEvent<HTMLCanvasElement>) {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    (e.currentTarget as HTMLCanvasElement).setPointerCapture(e.pointerId);
+    drawingRef.current = true;
+    lastPosRef.current = getCanvasPos(e);
+  }
+  function onCanvasPointerMove(e: React.PointerEvent<HTMLCanvasElement>) {
+    if (!drawingRef.current) return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    const p = getCanvasPos(e);
+    const last = lastPosRef.current || p;
+    ctx.beginPath();
+    ctx.moveTo(last.x, last.y);
+    ctx.lineTo(p.x, p.y);
+    ctx.stroke();
+    lastPosRef.current = p;
+  }
+  function onCanvasPointerUp() {
+    drawingRef.current = false;
+    lastPosRef.current = null;
+  }
+  function clearSignature() {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+  }
+
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
     const text = wishText.trim();
     if (!text) return;
-    onSubmit({ text, bgColor, isGradient });
+    const signatureDataUrl = canvasRef.current?.toDataURL("image/png");
+    onSubmit({ text, bgColor, isGradient, signatureDataUrl });
     setWishText("");
     setBgColor("#6b8bff");
     setIsGradient(false);
+    clearSignature();
     onClose();
   }
+
+  const modalBgStyle = isGradient
+    ? bgColor
+      ? {
+          background: `linear-gradient(135deg, ${bgColor} 0%, ${bgColor}33 100%)`,
+        }
+      : undefined
+    : bgColor
+    ? { background: bgColor }
+    : undefined;
+
+  const MAX = 50;
+  const onChangeText = (val: string) => {
+    const clipped = val.slice(0, MAX);
+    setWishText(clipped);
+  };
+
+  const palette = [
+    "#6b8bff",
+    "#FF6900",
+    "#FCB900",
+    "#7BDCB5",
+    "#00D084",
+  ] as const;
 
   return (
     <AnimatePresence>
@@ -74,8 +178,80 @@ export default function WishModal({
               damping: 38,
               mass: 0.8,
             }}
+            style={modalBgStyle}
           >
-            <h2 className="modal__title">소원 남기기</h2>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 12,
+              }}
+            >
+              <h2
+                className="modal__title"
+                style={{ margin: 0, color: pickTextColor(bgColor) }}
+              >
+                소원 남기기
+              </h2>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                {palette.map((c) => (
+                  <button
+                    key={c}
+                    type="button"
+                    aria-label={`select-color-${c}`}
+                    onClick={() => setBgColor(c)}
+                    style={{
+                      width: 16,
+                      height: 16,
+                      borderRadius: 999,
+                      border: "1px solid rgba(0,0,0,0.15)",
+                      background: c,
+                      boxShadow:
+                        c === bgColor
+                          ? "0 0 0 2px rgba(0,0,0,0.2) inset"
+                          : undefined,
+                    }}
+                  />
+                ))}
+                <button
+                  type="button"
+                  aria-label="custom-color"
+                  onClick={() => setIsPickerOpen((v) => !v)}
+                  style={{
+                    width: 16,
+                    height: 16,
+                    borderRadius: 999,
+                    border: "1px dashed rgba(0,0,0,0.3)",
+                    background: "transparent",
+                  }}
+                />
+                {isPickerOpen && (
+                  <div
+                    ref={pickerRef}
+                    style={{
+                      position: "absolute",
+                      right: 12,
+                      top: 54,
+                      zIndex: 101,
+                    }}
+                  >
+                    <GithubPicker
+                      triangle="hide"
+                      colors={[...palette]}
+                      color={bgColor}
+                      onChangeComplete={(c) => {
+                        setBgColor(c.hex);
+                        setIsPickerOpen(false);
+                      }}
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
+            <div style={{ fontSize: 12, opacity: 0.75, textAlign: "right" }}>
+              {wishText.length}/{MAX}
+            </div>
             <form onSubmit={handleSubmit} className="modal__form">
               <label className="visually-hidden" htmlFor="wish-textarea">
                 소원 내용
@@ -87,34 +263,13 @@ export default function WishModal({
                 placeholder="소원을 적어주세요..."
                 rows={5}
                 value={wishText}
-                onChange={(e) => setWishText(e.target.value)}
+                onChange={(e) => onChangeText(e.target.value)}
+                maxLength={MAX}
               />
-              <div className="field-row" style={{ alignItems: "flex-start" }}>
-                <div style={{ minWidth: 88 }}>
-                  <div style={{ fontSize: 12, opacity: 0.8, marginBottom: 6 }}>
-                    카드 배경색
-                  </div>
-                  <GithubPicker
-                    triangle="hide"
-                    colors={[
-                      "#6b8bff",
-                      "#FF6900",
-                      "#FCB900",
-                      "#7BDCB5",
-                      "#00D084",
-                      "#8ED1FC",
-                      "#0693E3",
-                      "#ABB8C3",
-                      "#EB144C",
-                      "#F78DA7",
-                      "#9900EF",
-                    ]}
-                    color={bgColor}
-                    onChangeComplete={(c) => setBgColor(c.hex)}
-                  />
-                </div>
-              </div>
-              <label className="checkbox">
+              <label
+                className="checkbox"
+                style={{ color: pickTextColor(bgColor), marginTop: 8 }}
+              >
                 <input
                   type="checkbox"
                   checked={isGradient}
@@ -122,6 +277,55 @@ export default function WishModal({
                 />
                 배경 그라데이션 적용
               </label>
+
+              <div>
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    marginBottom: 8,
+                    marginTop: 6,
+                  }}
+                >
+                  <div
+                    style={{
+                      fontSize: 14,
+                      fontWeight: 600,
+                      opacity: 0.8,
+                      color: pickTextColor(bgColor),
+                    }}
+                  >
+                    간단한 서명 (선택)
+                  </div>
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "flex-end",
+                      marginTop: 6,
+                    }}
+                  >
+                    <button
+                      type="button"
+                      className="button"
+                      onClick={clearSignature}
+                    >
+                      서명 지우기
+                    </button>
+                  </div>
+                </div>
+                <div className="signature-box">
+                  <canvas
+                    ref={canvasRef}
+                    className="signature-canvas"
+                    onPointerDown={onCanvasPointerDown}
+                    onPointerMove={onCanvasPointerMove}
+                    onPointerUp={onCanvasPointerUp}
+                    onPointerLeave={onCanvasPointerUp}
+                  />
+                </div>
+              </div>
+
               <div className="modal__actions">
                 <button type="button" className="button" onClick={onClose}>
                   취소

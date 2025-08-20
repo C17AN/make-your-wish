@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import "./App.css";
 import Header from "./components/Header";
 import CardGrid from "./components/CardGrid";
@@ -7,35 +7,10 @@ import WishPreviewModal from "./components/WishPreviewModal";
 import { supabase, type WishDto } from "./lib/supabaseClient";
 
 function App() {
-  const initialWishes = useMemo(
-    () => [
-      "가족 모두 건강하기",
-      "취업 성공!",
-      "올해는 여행을 많이 가고 싶어요",
-      "코딩 실력 레벨업",
-      "좋은 사람들과 오래오래",
-      "마라톤 완주",
-      "마음의 평화",
-      "하루 한 가지 좋은 일 하기",
-      "새로운 취미 찾기",
-      "책 12권 읽기",
-      "부지런한 아침형 인간 되기",
-      "덕담: 당신의 내일이 더 반짝이길",
-      "덕담: 충분히 잘하고 있어요",
-      "덕담: 오늘도 수고했어요",
-      "소소한 행복 놓치지 않기",
-      "맛있는 거 많이 먹기",
-    ],
-    []
-  );
-
-  const [wishes, setWishes] = useState<string[]>(initialWishes);
-  const [bgColors, setBgColors] = useState<(string | undefined)[]>(
-    initialWishes.map(() => undefined)
-  );
-  const [gradients, setGradients] = useState<(boolean | undefined)[]>(
-    initialWishes.map(() => undefined)
-  );
+  const [wishes, setWishes] = useState<string[]>([]);
+  const [bgColors, setBgColors] = useState<(string | undefined)[]>([]);
+  const [gradients, setGradients] = useState<(boolean | undefined)[]>([]);
+  const [signatures, setSignatures] = useState<(string | undefined)[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [columns, setColumns] = useState(4);
 
@@ -43,14 +18,40 @@ function App() {
     text: string;
     bgColor?: string;
     isGradient?: boolean;
+    signatureDataUrl?: string;
   } | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const [isDark, setIsDark] = useState<boolean>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("theme");
+      if (saved === "dark") return true;
+      if (saved === "light") return false;
+      if (
+        window.matchMedia &&
+        window.matchMedia("(prefers-color-scheme: dark)").matches
+      ) {
+        return true;
+      }
+    }
+    return false;
+  });
+  useEffect(() => {
+    const root = document.documentElement;
+    root.setAttribute("data-theme", isDark ? "dark" : "light");
+  }, [isDark]);
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("theme", isDark ? "dark" : "light");
+    }
+  }, [isDark]);
 
   // 초기 fetch
   useEffect(() => {
     (async () => {
       const { data, error } = await supabase
         .from("wishes")
-        .select("text, bg_color, is_gradient, created_at")
+        .select("text, bg_color, is_gradient, signature_data_url, created_at")
         .order("created_at", { ascending: false })
         .limit(120);
       if (!error && data) {
@@ -60,10 +61,15 @@ function App() {
         const loadedGradients = list.map(
           (d) => (d.is_gradient ?? undefined) as boolean | undefined
         );
+        const loadedSignatures = list.map(
+          (d) => d.signature_data_url ?? undefined
+        );
         setWishes((prev) => [...loadedTexts, ...prev]);
         setBgColors((prev) => [...loadedColors, ...prev]);
         setGradients((prev) => [...loadedGradients, ...prev]);
+        setSignatures((prev) => [...loadedSignatures, ...prev]);
       }
+      setIsLoading(false);
     })();
   }, []);
 
@@ -87,32 +93,46 @@ function App() {
     text: string;
     bgColor?: string;
     isGradient?: boolean;
+    signatureDataUrl?: string;
   }) {
-    const { text, bgColor, isGradient } = input;
+    const { text, bgColor, isGradient, signatureDataUrl } = input;
     setWishes((prev) => [text, ...prev]);
     setBgColors((prev) => [bgColor, ...prev]);
     setGradients((prev) => [isGradient, ...prev]);
-    // 비동기 저장 (실패해도 UI는 낙관적 업데이트)
+    setSignatures((prev) => [signatureDataUrl, ...prev]);
     supabase
       .from("wishes")
       .insert({
         text,
         bg_color: bgColor ?? null,
         is_gradient: isGradient ?? null,
+        signature_data_url: signatureDataUrl ?? null,
       })
       .then(() => {});
   }
 
   return (
     <div className="page">
-      <Header onClickAdd={() => setIsModalOpen(true)} />
+      <Header
+        onClickAdd={() => setIsModalOpen(true)}
+        onToggleTheme={() => setIsDark((v) => !v)}
+        isDark={isDark}
+      />
       <main className="main">
         <CardGrid
           wishes={wishes}
           columns={columns}
           bgColors={bgColors}
           gradients={gradients}
-          onSelect={(p) => setPreview(p)}
+          isLoading={isLoading}
+          onSelect={(p) =>
+            setPreview({
+              text: p.text,
+              bgColor: bgColors[p.itemIndex],
+              isGradient: gradients[p.itemIndex],
+              signatureDataUrl: signatures[p.itemIndex],
+            })
+          }
         />
       </main>
       <WishModal
@@ -125,6 +145,7 @@ function App() {
         text={preview?.text ?? ""}
         bgColor={preview?.bgColor}
         isGradient={preview?.isGradient}
+        signatureDataUrl={preview?.signatureDataUrl}
         onClose={() => setPreview(null)}
       />
     </div>

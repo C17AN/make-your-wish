@@ -7,6 +7,7 @@ import {
   useSpring,
   useTransform,
 } from "motion/react";
+import { pickTextColor } from "../lib/utils/colorUtils";
 
 type WishPreviewModalProps = {
   isOpen: boolean;
@@ -14,6 +15,7 @@ type WishPreviewModalProps = {
   bgColor?: string;
   isGradient?: boolean;
   onClose: () => void;
+  signatureDataUrl?: string;
 };
 
 export default function WishPreviewModal({
@@ -22,67 +24,78 @@ export default function WishPreviewModal({
   bgColor,
   isGradient,
   onClose,
+  signatureDataUrl,
 }: WishPreviewModalProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const px = useMotionValue(0);
-  const py = useMotionValue(0);
-  const w = useMotionValue(1);
-  const h = useMotionValue(1);
+  const isDraggingRef = useRef(false);
+  const lastXRef = useRef(0);
+  const lastYRef = useRef(0);
+  const accumXRef = useRef(0);
+  const accumYRef = useRef(0);
+  const dragX = useMotionValue(0);
+  const dragY = useMotionValue(0);
 
   // smooth motion
-  const sx = useSpring(px, { stiffness: 200, damping: 30, mass: 0.6 });
-  const sy = useSpring(py, { stiffness: 200, damping: 30, mass: 0.6 });
+  const sx = useSpring(dragX, { stiffness: 200, damping: 30, mass: 0.6 });
+  const sy = useSpring(dragY, { stiffness: 200, damping: 30, mass: 0.6 });
 
   // rotate from pointer position (map to -8..8 deg)
   const rotateX = useTransform(sy, (val) => {
-    const height = Math.max(1, h.get());
-    const ratio = val / height; // 0..1
-    return 8 - ratio * 16; // 8 -> -8
+    const clamped = Math.max(-40, Math.min(40, val));
+    return (-clamped / 40) * 8; // drag up -> tilt up
   });
   const rotateY = useTransform(sx, (val) => {
-    const width = Math.max(1, w.get());
-    const ratio = val / width; // 0..1
-    return ratio * 16 - 8; // -8 -> 8
+    const clamped = Math.max(-40, Math.min(40, val));
+    return (clamped / 40) * 8; // drag right -> tilt right
   });
   const cardTransform = useMotionTemplate`perspective(900px) rotateX(${rotateX}deg) rotateY(${rotateY}deg)`;
 
+  // 드래그 종료/모달 닫힘 시 원위치
   useEffect(() => {
-    if (!isOpen) return;
-    const elLocal = containerRef.current;
-    if (!elLocal) return;
-    const rect = elLocal.getBoundingClientRect();
-    w.set(rect.width);
-    h.set(rect.height);
-    // center pointer
-    px.set(rect.width / 2);
-    py.set(rect.height / 2);
-    function onResize() {
-      const refEl = containerRef.current;
-      if (!refEl) return;
-      const r = refEl.getBoundingClientRect();
-      w.set(r.width);
-      h.set(r.height);
+    if (!isOpen) {
+      dragX.set(0);
+      dragY.set(0);
+      isDraggingRef.current = false;
     }
-    window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
-  }, [isOpen, w, h, px, py]);
+  }, [isOpen, dragX, dragY]);
 
   function handlePointerMove(e: React.PointerEvent) {
-    const el = containerRef.current;
-    if (!el) return;
-    const rect = el.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    px.set(x);
-    py.set(y);
+    if (!isDraggingRef.current) return;
+    // 드래그 방향/크기에 비례해 회전 (client 좌표 기준 누적)
+    const dx = e.clientX - lastXRef.current;
+    const dy = e.clientY - lastYRef.current;
+    lastXRef.current = e.clientX;
+    lastYRef.current = e.clientY;
+    accumXRef.current += dx;
+    accumYRef.current += dy;
+    dragX.set(accumXRef.current);
+    dragY.set(accumYRef.current);
   }
 
   function handlePointerLeave() {
-    // reset to center
-    const width = Math.max(1, w.get());
-    const height = Math.max(1, h.get());
-    px.set(width / 2);
-    py.set(height / 2);
+    isDraggingRef.current = false;
+    accumXRef.current = 0;
+    accumYRef.current = 0;
+    dragX.set(0);
+    dragY.set(0);
+  }
+  function handlePointerUp() {
+    isDraggingRef.current = false;
+    lastXRef.current = 0;
+    lastYRef.current = 0;
+    accumXRef.current = 0;
+    accumYRef.current = 0;
+    dragX.set(0);
+    dragY.set(0);
+  }
+  function handlePointerCancel() {
+    isDraggingRef.current = false;
+    lastXRef.current = 0;
+    lastYRef.current = 0;
+    accumXRef.current = 0;
+    accumYRef.current = 0;
+    dragX.set(0);
+    dragY.set(0);
   }
 
   useEffect(() => {
@@ -101,14 +114,21 @@ export default function WishPreviewModal({
   }, [text]);
 
   const cardStyle = useMemo(() => {
-    if (!bgColor) return undefined;
+    const base: React.CSSProperties = {
+      transform: cardTransform as unknown as string,
+      backdropFilter: `blur(6px)`,
+      WebkitBackdropFilter: `blur(6px)`,
+      color: pickTextColor(bgColor),
+    };
+    if (!bgColor) return base;
     if (isGradient) {
       return {
+        ...base,
         background: `linear-gradient(135deg, ${bgColor} 0%, ${bgColor}33 100%)`,
       };
     }
-    return { background: bgColor };
-  }, [bgColor, isGradient]);
+    return { ...base, background: bgColor };
+  }, [bgColor, isGradient, cardTransform]);
 
   return (
     <AnimatePresence>
@@ -132,12 +152,17 @@ export default function WishPreviewModal({
             <motion.div
               ref={containerRef}
               className="preview-card"
-              style={{ transform: cardTransform, ...cardStyle }}
+              style={cardStyle}
               onPointerMove={handlePointerMove}
               onPointerLeave={handlePointerLeave}
-              onPointerDown={(e) =>
-                (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
-              }
+              onPointerDown={(e) => {
+                (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+                isDraggingRef.current = true;
+                lastXRef.current = e.clientX;
+                lastYRef.current = e.clientY;
+              }}
+              onPointerUp={handlePointerUp}
+              onPointerCancel={handlePointerCancel}
             >
               <div className="preview-card__inner">
                 {blocks.map((b, i) => (
@@ -155,6 +180,21 @@ export default function WishPreviewModal({
                     {b}
                   </motion.p>
                 ))}
+                {signatureDataUrl ? (
+                  <motion.img
+                    src={signatureDataUrl}
+                    alt="signature"
+                    style={{
+                      width: "auto",
+                      maxWidth: "60%",
+                      height: 56,
+                      opacity: 0.9,
+                    }}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 0.12 + blocks.length * 0.12 }}
+                  />
+                ) : null}
               </div>
             </motion.div>
           </motion.div>

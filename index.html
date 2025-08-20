@@ -15,6 +15,61 @@
       rel="stylesheet"
       href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/variable/pretendardvariable.css"
     />
+    <!-- SVG filters for glass distortion / chromatic aberration -->
+    <svg width="0" height="0" style="position: absolute">
+      <defs>
+        <!-- Displacement for backdrop-like distortion -->
+        <filter
+          id="backdrop-distort"
+          x="-50%"
+          y="-50%"
+          width="200%"
+          height="200%"
+          color-interpolation-filters="sRGB"
+        >
+          <feTurbulence
+            type="fractalNoise"
+            baseFrequency="0.006 0.009"
+            numOctaves="2"
+            seed="3"
+            result="noise"
+          />
+          <feDisplacementMap
+            in="SourceGraphic"
+            in2="noise"
+            scale="6"
+            xChannelSelector="R"
+            yChannelSelector="G"
+          />
+        </filter>
+        <!-- Slight chromatic aberration for foreground content -->
+        <filter
+          id="glass-aberration"
+          x="-50%"
+          y="-50%"
+          width="200%"
+          height="200%"
+          color-interpolation-filters="sRGB"
+        >
+          <feOffset in="SourceGraphic" dx="1" dy="0" result="offR" />
+          <feColorMatrix
+            in="offR"
+            type="matrix"
+            values="1 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 1 0"
+            result="r"
+          />
+          <feOffset in="SourceGraphic" dx="-1" dy="0" result="offB" />
+          <feColorMatrix
+            in="offB"
+            type="matrix"
+            values="0 0 0 0 0  0 0 0 0 0  0 0 1 0 0  0 0 0 1 0"
+            result="b"
+          />
+          <feBlend in="r" in2="b" mode="screen" result="rb" />
+          <feBlend in="SourceGraphic" in2="rb" mode="screen" />
+        </filter>
+      </defs>
+    </svg>
   </head>
   <body>
     <div id="root"></div>
