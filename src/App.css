@@ -1,0 +1,202 @@
+/* 레이아웃 */
+.page {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.app-header {
+  --header-height: 64px;
+  position: sticky;
+  top: 0;
+  height: var(--header-height);
+  backdrop-filter: blur(6px);
+  background: color-mix(in oklab, canvas, transparent 10%);
+  border-bottom: 1px solid color-mix(in oklab, canvasText 20%, transparent);
+  z-index: 10;
+}
+.app-header__inner {
+  max-width: 1200px;
+  height: 100%;
+  margin: 0 auto;
+  padding: 0 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.app-title {
+  margin: 0;
+  font-size: 18px;
+  letter-spacing: 0.2px;
+}
+
+.main {
+  flex: 1;
+  padding: 16px;
+}
+
+/* 그리드 + 세로 스크롤 애니메이션 */
+.grid {
+  --columns: 4;
+  display: grid;
+  grid-template-columns: repeat(var(--columns), minmax(0, 1fr));
+  gap: 12px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+.grid__col {
+  overflow: hidden;
+  height: calc(100vh - var(--header-height) - 48px);
+  position: relative;
+}
+.col-scroll {
+  height: 100%;
+  width: 100%;
+  overflow: auto; /* 내부 스크롤 사용 (스크롤바는 전역에서 숨김) */
+  overscroll-behavior: contain;
+  scrollbar-width: none; /* Firefox */
+}
+.col-scroll::-webkit-scrollbar {
+  display: none; /* WebKit */
+}
+.col-inner {
+  display: grid;
+  grid-auto-rows: min-content;
+  gap: 0; /* 반복 블록 사이 간격 제거 */
+  animation-duration: var(--duration, 20s);
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+.scroll-up {
+  animation-name: scrollYUp;
+}
+.scroll-down {
+  animation-name: scrollYDown;
+}
+@keyframes scrollYUp {
+  0% {
+    transform: translateY(0);
+  }
+  100% {
+    transform: translateY(-50%);
+  }
+}
+@keyframes scrollYDown {
+  0% {
+    transform: translateY(-50%);
+  }
+  100% {
+    transform: translateY(0);
+  }
+}
+.col-content {
+  display: grid;
+  grid-auto-rows: min-content;
+  gap: 12px;
+}
+
+/* 페이지 자체 스크롤 숨김 */
+html,
+body {
+  overflow: hidden;
+}
+
+/* 카드 */
+.card {
+  border-radius: 14px;
+  padding: 14px 16px;
+  background: color-mix(in oklab, canvasText 8%, canvas 92%);
+  border: 1px solid color-mix(in oklab, canvasText 16%, transparent);
+  box-shadow: 0 2px 8px color-mix(in oklab, canvasText 8%, transparent);
+  min-height: 110px;
+  display: flex;
+}
+.card__text {
+  margin: auto 0;
+  white-space: pre-wrap;
+  line-height: 1.4;
+}
+
+/* 버튼 */
+.button {
+  border-radius: 10px;
+  border: 1px solid color-mix(in oklab, canvasText 16%, transparent);
+  padding: 10px 14px;
+  font-size: 14px;
+  background: color-mix(in oklab, canvasText 6%, canvas 94%);
+  cursor: pointer;
+}
+.button--primary {
+  background: #6b8bff;
+  border-color: #6b8bff;
+  color: white;
+}
+.button:active {
+  transform: translateY(1px);
+}
+
+/* 모달 */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: color-mix(in oklab, black 55%, transparent);
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  z-index: 100;
+}
+.modal {
+  width: min(560px, 100%);
+  background: color-mix(in oklab, canvasText 6%, canvas 94%);
+  border: 1px solid color-mix(in oklab, canvasText 16%, transparent);
+  border-radius: 16px;
+  padding: 20px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+  will-change: transform, opacity;
+}
+.modal__title {
+  margin: 0 0 12px;
+  font-size: 18px;
+}
+.modal__form {
+  display: grid;
+  gap: 12px;
+}
+.field-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.textarea {
+  width: 100%;
+  min-height: 120px;
+  resize: vertical;
+  padding: 12px;
+  font-size: 14px;
+  border-radius: 12px;
+  border: 1px solid color-mix(in oklab, canvasText 16%, transparent);
+  background: color-mix(in oklab, canvasText 4%, canvas 96%);
+}
+.modal__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+/* 접근성 보조 */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
