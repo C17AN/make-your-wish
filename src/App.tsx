@@ -22,29 +22,11 @@ function App() {
   } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  const [isDark, setIsDark] = useState<boolean>(() => {
-    if (typeof window !== "undefined") {
-      const saved = localStorage.getItem("theme");
-      if (saved === "dark") return true;
-      if (saved === "light") return false;
-      if (
-        window.matchMedia &&
-        window.matchMedia("(prefers-color-scheme: dark)").matches
-      ) {
-        return true;
-      }
-    }
-    return false;
-  });
+  // 테마 고정: 다크(검정 배경)
   useEffect(() => {
     const root = document.documentElement;
-    root.setAttribute("data-theme", isDark ? "dark" : "light");
-  }, [isDark]);
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      localStorage.setItem("theme", isDark ? "dark" : "light");
-    }
-  }, [isDark]);
+    root.setAttribute("data-theme", "dark");
+  }, []);
 
   // 초기 fetch
   useEffect(() => {
@@ -113,11 +95,7 @@ function App() {
 
   return (
     <div className="page">
-      <Header
-        onClickAdd={() => setIsModalOpen(true)}
-        onToggleTheme={() => setIsDark((v) => !v)}
-        isDark={isDark}
-      />
+      <Header onClickAdd={() => setIsModalOpen(true)} />
       <main className="main">
         <CardGrid
           wishes={wishes}

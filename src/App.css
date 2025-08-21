@@ -19,7 +19,8 @@
   top: 0;
   height: var(--header-height);
   backdrop-filter: blur(6px);
-  background: color-mix(in oklab, canvas, transparent 10%);
+  -webkit-backdrop-filter: blur(6px);
+  background: color-mix(in oklab, #000, transparent 10%);
   border-bottom: 1px solid color-mix(in oklab, canvasText 20%, transparent);
   z-index: 10;
 }
@@ -119,6 +120,8 @@ body {
   /* pseudo glass with subtle inner shadow */
   position: relative;
   cursor: pointer;
+  will-change: backdrop-filter, transform, opacity;
+  transform: translateZ(0);
 }
 .card--skeleton {
   cursor: default;
@@ -163,7 +166,7 @@ body {
   border: 1px solid color-mix(in oklab, canvasText 16%, transparent);
   padding: 10px 14px;
   font-size: 14px;
-  background: color-mix(in oklab, canvasText 6%, canvas 94%);
+  background: color-mix(in oklab, #fff 6%, #000 94%);
   cursor: pointer;
 }
 .button--primary {
@@ -194,6 +197,8 @@ body {
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
   will-change: transform, opacity;
   backdrop-filter: blur(calc(var(--glass-blur, 0px) * 0.6));
+  -webkit-backdrop-filter: blur(calc(var(--glass-blur, 0px) * 0.6));
+  transform: translateZ(0);
 }
 
 .preview-wrap {
@@ -206,6 +211,9 @@ body {
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.35);
   padding: 28px 26px;
   transform-style: preserve-3d;
+  cursor: grabbing;
+  will-change: transform, opacity, backdrop-filter;
+  transform: translateZ(0);
 }
 .preview-card__inner {
   display: grid;

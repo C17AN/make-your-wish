@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { GithubPicker } from "react-color";
+import { ChromePicker } from "react-color";
 import { pickTextColor } from "../lib/utils/colorUtils";
 
 type WishModalProps = {
@@ -47,6 +47,24 @@ export default function WishModal({
     if (!isOpen) setIsPickerOpen(false);
   }, [isOpen]);
 
+  // 컬러 피커 외부 클릭 시 닫기
+  useEffect(() => {
+    if (!isPickerOpen) return;
+    const onPointerDown: EventListener = (e) => {
+      const pickerEl = pickerRef.current;
+      const target = e.target as Node | null;
+      if (pickerEl && target && !pickerEl.contains(target)) {
+        setIsPickerOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("touchstart", onPointerDown, { passive: true });
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("touchstart", onPointerDown);
+    };
+  }, [isPickerOpen]);
+
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       if (!isOpen) return;
@@ -73,7 +91,7 @@ export default function WishModal({
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
     ctx.lineWidth = 2.5;
-    ctx.strokeStyle = "#333";
+    ctx.strokeStyle = "#fff";
     ctx.clearRect(0, 0, canvas.width, canvas.height);
   }
 
@@ -234,16 +252,17 @@ export default function WishModal({
                       right: 12,
                       top: 54,
                       zIndex: 101,
+                      boxShadow: "0 10px 30px rgba(0,0,0,0.25)",
+                      borderRadius: 12,
+                      overflow: "hidden",
                     }}
+                    onClick={(e) => e.stopPropagation()}
                   >
-                    <GithubPicker
-                      triangle="hide"
-                      colors={[...palette]}
+                    <ChromePicker
                       color={bgColor}
-                      onChangeComplete={(c) => {
-                        setBgColor(c.hex);
-                        setIsPickerOpen(false);
-                      }}
+                      disableAlpha
+                      onChange={(c) => setBgColor(c.hex)}
+                      onChangeComplete={(c) => setBgColor(c.hex)}
                     />
                   </div>
                 )}

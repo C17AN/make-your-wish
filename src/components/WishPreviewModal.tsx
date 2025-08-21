@@ -140,6 +140,7 @@ export default function WishPreviewModal({
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.18, ease: "easeOut" }}
+          style={{ position: "fixed", inset: 0 }}
         >
           <motion.div
             className="preview-wrap"

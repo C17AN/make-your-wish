@@ -76,97 +76,87 @@ export default function CardGrid({
     [columns]
   );
 
+  // 모달 오픈 등 리렌더 시에도 열 속도가 바뀌지 않도록 결정적으로 고정
+  const columnSpeeds = useMemo(() => {
+    const count = Math.max(1, columns);
+    return Array.from({ length: count }, (_, i) => 20 + (i % 3) * 8);
+  }, [columns]);
+
   return (
-    <div style={{ position: "relative" }}>
-      <AnimatePresence mode="sync" initial={false}>
-        {isLoading && (
-          <motion.div
-            key="skeleton"
-            initial={{ opacity: 1 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.3, ease: "easeOut" }}
-            style={{ position: "absolute", inset: 0 }}
+    <div className="grid" style={gridStyle}>
+      {Array.from({ length: Math.max(1, columns) }).map((_, colIndex) => {
+        const colIdxs = columnBuckets[colIndex] || [];
+        const isUp = colIndex % 2 === 0;
+        const speed = columnSpeeds[colIndex] ?? 24;
+        const isRevealed = revealed[colIndex] === true;
+        return (
+          <div
+            className="grid__col"
+            key={`col-${colIndex}`}
+            style={{ position: "relative" }}
           >
-            <div className="grid" style={gridStyle}>
-              {Array.from({ length: Math.max(1, columns) }).map(
-                (_, colIndex) => (
-                  <div className="grid__col" key={`skel-col-${colIndex}`}>
-                    <div className="col-scroll">
-                      <div style={{ position: "relative" }}>
-                        {Array.from({ length: 10 }).map((__, r) => (
-                          <div
-                            key={`skel-${colIndex}-${r}`}
-                            style={{ position: "relative", paddingBottom: 12 }}
-                          >
-                            <article className="card card--skeleton">
-                              <div className="skeleton-lines">
-                                <div
-                                  className="skeleton-line"
-                                  style={{ width: "80%" }}
-                                />
-                                <div
-                                  className="skeleton-line"
-                                  style={{ width: "60%" }}
-                                />
-                              </div>
-                            </article>
-                          </div>
-                        ))}
-                      </div>
+            <AnimatePresence mode="sync" initial={false}>
+              {isLoading ? (
+                <motion.div
+                  key="skel"
+                  initial={{ opacity: 1 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.3, ease: "easeOut" }}
+                  style={{ position: "absolute", inset: 0 }}
+                >
+                  <div className="col-scroll">
+                    <div style={{ position: "relative" }}>
+                      {Array.from({ length: 10 }).map((__, r) => (
+                        <div
+                          key={`skel-${colIndex}-${r}`}
+                          style={{ position: "relative", paddingBottom: 12 }}
+                        >
+                          <article className="card card--skeleton">
+                            <div className="skeleton-lines">
+                              <div
+                                className="skeleton-line"
+                                style={{ width: "80%" }}
+                              />
+                              <div
+                                className="skeleton-line"
+                                style={{ width: "60%" }}
+                              />
+                            </div>
+                          </article>
+                        </div>
+                      ))}
                     </div>
                   </div>
-                )
+                </motion.div>
+              ) : (
+                <motion.div
+                  key="content"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.3, ease: "easeOut" }}
+                  onAnimationComplete={() => {
+                    if (!isRevealed)
+                      setRevealed((prev) => ({ ...prev, [colIndex]: true }));
+                  }}
+                  style={{ position: "absolute", inset: 0 }}
+                >
+                  <VirtualColumn
+                    itemIndexes={colIdxs}
+                    allWishes={wishes}
+                    allBgColors={bgColors}
+                    allGradients={gradients}
+                    isUp={isUp}
+                    speed={speed}
+                    onSelect={onSelect}
+                  />
+                </motion.div>
               )}
-            </div>
-          </motion.div>
-        )}
-        {!isLoading && (
-          <motion.div
-            key="content"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.3, ease: "easeOut" }}
-            style={{ position: "absolute", inset: 0 }}
-          >
-            <div className="grid" style={gridStyle}>
-              {columnBuckets.map((colIdxs, colIndex) => {
-                const isUp = colIndex % 2 === 0;
-                const speed = 18 + Math.random() * 10;
-                const isRevealed = revealed[colIndex] === true;
-                return (
-                  <motion.div
-                    key={`col-wrap-${colIndex}`}
-                    initial={false}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{
-                      type: "spring",
-                      stiffness: 260,
-                      damping: 24,
-                      delay: isRevealed ? 0 : colIndex * 0.02,
-                    }}
-                    onAnimationComplete={() => {
-                      if (!isRevealed)
-                        setRevealed((prev) => ({ ...prev, [colIndex]: true }));
-                    }}
-                  >
-                    <VirtualColumn
-                      itemIndexes={colIdxs}
-                      allWishes={wishes}
-                      allBgColors={bgColors}
-                      allGradients={gradients}
-                      isUp={isUp}
-                      speed={speed}
-                      onSelect={onSelect}
-                    />
-                  </motion.div>
-                );
-              })}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+            </AnimatePresence>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -319,58 +309,56 @@ function VirtualColumn({
   }, [isUp, speed, virtualizer]);
 
   return (
-    <div className="grid__col">
-      <div className="col-scroll" ref={scrollRef}>
-        <div style={{ height: totalSize, position: "relative" }}>
-          {itemsToRender.map((vi) => {
-            const baseIndex =
-              itemIndexes.length > 0
-                ? itemIndexes[vi.index % itemIndexes.length]
-                : -1;
-            const text =
-              baseIndex >= 0 ? allWishes[baseIndex] : "첫 소원을 남겨보세요!";
-            const color = baseIndex >= 0 ? allBgColors?.[baseIndex] : undefined;
-            const grad = baseIndex >= 0 ? allGradients?.[baseIndex] : undefined;
-            const style: CSSProperties | undefined = color
-              ? grad
-                ? {
-                    background: `linear-gradient(135deg, ${color} 0%, ${color}33 100%)`,
-                  }
-                : { background: color }
-              : undefined;
-            const textColor = pickTextColor(color);
-            return (
-              <div
-                key={vi.key}
-                style={{
-                  position: "absolute",
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  transform: `translateY(${vi.start}px)`,
-                  paddingBottom: 12,
-                }}
+    <div className="col-scroll" ref={scrollRef}>
+      <div style={{ height: totalSize, position: "relative" }}>
+        {itemsToRender.map((vi) => {
+          const baseIndex =
+            itemIndexes.length > 0
+              ? itemIndexes[vi.index % itemIndexes.length]
+              : -1;
+          const text =
+            baseIndex >= 0 ? allWishes[baseIndex] : "첫 소원을 남겨보세요!";
+          const color = baseIndex >= 0 ? allBgColors?.[baseIndex] : undefined;
+          const grad = baseIndex >= 0 ? allGradients?.[baseIndex] : undefined;
+          const style: CSSProperties | undefined = color
+            ? grad
+              ? {
+                  background: `linear-gradient(135deg, ${color} 0%, ${color}33 100%)`,
+                }
+              : { background: color }
+            : undefined;
+          const textColor = pickTextColor(color);
+          return (
+            <div
+              key={vi.key}
+              style={{
+                position: "absolute",
+                top: 0,
+                left: 0,
+                right: 0,
+                transform: `translateY(${vi.start}px)`,
+                paddingBottom: 12,
+              }}
+            >
+              <article
+                className="card"
+                style={style}
+                onClick={() =>
+                  onSelect?.({
+                    text,
+                    bgColor: color,
+                    isGradient: grad,
+                    itemIndex: baseIndex,
+                  })
+                }
               >
-                <article
-                  className="card"
-                  style={style}
-                  onClick={() =>
-                    onSelect?.({
-                      text,
-                      bgColor: color,
-                      isGradient: grad,
-                      itemIndex: baseIndex,
-                    })
-                  }
-                >
-                  <p className="card__text" style={{ color: textColor }}>
-                    {text}
-                  </p>
-                </article>
-              </div>
-            );
-          })}
-        </div>
+                <p className="card__text" style={{ color: textColor }}>
+                  {text}
+                </p>
+              </article>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
