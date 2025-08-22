@@ -1,7 +1,28 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { ChromePicker } from "react-color";
 import { pickTextColor } from "../lib/utils/colorUtils";
+
+// 의미 있는 텍스트 판별: 초성/모음만으로 이루어진 입력은 거부
+function isMeaningfulInput(raw: string): boolean {
+  const text = raw.trim();
+  if (text.length === 0) return false;
+  if (/[A-Za-z0-9]/.test(text)) return true; // 영문/숫자는 허용
+  const cleaned = text.replace(/[^ㄱ-ㅎㅏ-ㅣ가-힣A-Za-z0-9]/g, "");
+  if (cleaned.length === 0) return false;
+  const onlyJamo = /^[ㄱ-ㅎㅏ-ㅣ]+$/.test(cleaned);
+  if (onlyJamo) return false;
+  const syllableMatches = text.match(/[가-힣]/g) || [];
+  if (syllableMatches.length >= 1) {
+    // 한글 음절이 1개 이상 포함되어 있으면 의미 있는 입력으로 간주
+    return true;
+  }
+  return false;
+}
+
+function randomHexColor(): string {
+  const n = Math.floor(Math.random() * 0xffffff);
+  return `#${n.toString(16).padStart(6, "0")}`;
+}
 
 type WishModalProps = {
   isOpen: boolean;
@@ -14,19 +35,14 @@ type WishModalProps = {
   }) => void;
 };
 
-export default function WishModal({
-  isOpen,
-  onClose,
-  onSubmit,
-}: WishModalProps) {
+export default function WishModal({ isOpen, onClose, onSubmit }: WishModalProps) {
   const [wishText, setWishText] = useState("");
-  const [bgColor, setBgColor] = useState<string>("#6b8bff");
+  const [bgColor, setBgColor] = useState<string>(() => randomHexColor());
   const [isGradient, setIsGradient] = useState<boolean>(false);
-  const [isPickerOpen, setIsPickerOpen] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const [errorText, setErrorText] = useState<string | null>(null);
 
-  // color picker anchor
-  const pickerRef = useRef<HTMLDivElement | null>(null);
+  // no picker; random color button only
 
   // signature canvas refs
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -42,28 +58,13 @@ export default function WishModal({
     }
   }, [isOpen]);
 
-  // 모달 닫히면 피커도 닫기
+  // 모달이 열릴 때 에러 메시지 초기화
   useEffect(() => {
-    if (!isOpen) setIsPickerOpen(false);
+    if (isOpen) {
+      setErrorText(null);
+      setBgColor(randomHexColor()); // 기본 색상 무작위
+    }
   }, [isOpen]);
-
-  // 컬러 피커 외부 클릭 시 닫기
-  useEffect(() => {
-    if (!isPickerOpen) return;
-    const onPointerDown: EventListener = (e) => {
-      const pickerEl = pickerRef.current;
-      const target = e.target as Node | null;
-      if (pickerEl && target && !pickerEl.contains(target)) {
-        setIsPickerOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", onPointerDown);
-    document.addEventListener("touchstart", onPointerDown, { passive: true });
-    return () => {
-      document.removeEventListener("mousedown", onPointerDown);
-      document.removeEventListener("touchstart", onPointerDown);
-    };
-  }, [isPickerOpen]);
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
@@ -137,13 +138,18 @@ export default function WishModal({
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
     const text = wishText.trim();
-    if (!text) return;
+    if (!isMeaningfulInput(text)) {
+      setErrorText("의미 있는 단어를 입력해 주세요. (초성만 입력은 불가)");
+      textareaRef.current?.focus();
+      return;
+    }
     const signatureDataUrl = canvasRef.current?.toDataURL("image/png");
     onSubmit({ text, bgColor, isGradient, signatureDataUrl });
     setWishText("");
-    setBgColor("#6b8bff");
+    setBgColor(randomHexColor());
     setIsGradient(false);
     clearSignature();
+    setErrorText(null);
     onClose();
   }
 
@@ -161,15 +167,11 @@ export default function WishModal({
   const onChangeText = (val: string) => {
     const clipped = val.slice(0, MAX);
     setWishText(clipped);
+    if (errorText) {
+      const t = clipped.trim();
+      if (isMeaningfulInput(t)) setErrorText(null);
+    }
   };
-
-  const palette = [
-    "#6b8bff",
-    "#FF6900",
-    "#FCB900",
-    "#7BDCB5",
-    "#00D084",
-  ] as const;
 
   return (
     <AnimatePresence>
@@ -206,36 +208,14 @@ export default function WishModal({
                 gap: 12,
               }}
             >
-              <h2
-                className="modal__title"
-                style={{ margin: 0, color: pickTextColor(bgColor) }}
-              >
+              <h2 className="modal__title" style={{ margin: 0, color: pickTextColor(bgColor) }}>
                 소원 남기기
               </h2>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                {palette.map((c) => (
-                  <button
-                    key={c}
-                    type="button"
-                    aria-label={`select-color-${c}`}
-                    onClick={() => setBgColor(c)}
-                    style={{
-                      width: 16,
-                      height: 16,
-                      borderRadius: 999,
-                      border: "1px solid rgba(0,0,0,0.15)",
-                      background: c,
-                      boxShadow:
-                        c === bgColor
-                          ? "0 0 0 2px rgba(0,0,0,0.2) inset"
-                          : undefined,
-                    }}
-                  />
-                ))}
                 <button
                   type="button"
-                  aria-label="custom-color"
-                  onClick={() => setIsPickerOpen((v) => !v)}
+                  aria-label="random-color"
+                  onClick={() => setBgColor(randomHexColor())}
                   style={{
                     width: 16,
                     height: 16,
@@ -243,29 +223,8 @@ export default function WishModal({
                     border: "1px dashed rgba(0,0,0,0.3)",
                     background: "transparent",
                   }}
+                  title="무작위 색상"
                 />
-                {isPickerOpen && (
-                  <div
-                    ref={pickerRef}
-                    style={{
-                      position: "absolute",
-                      right: 12,
-                      top: 54,
-                      zIndex: 101,
-                      boxShadow: "0 10px 30px rgba(0,0,0,0.25)",
-                      borderRadius: 12,
-                      overflow: "hidden",
-                    }}
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <ChromePicker
-                      color={bgColor}
-                      disableAlpha
-                      onChange={(c) => setBgColor(c.hex)}
-                      onChangeComplete={(c) => setBgColor(c.hex)}
-                    />
-                  </div>
-                )}
               </div>
             </div>
             <div style={{ fontSize: 12, opacity: 0.75, textAlign: "right" }}>
@@ -284,11 +243,20 @@ export default function WishModal({
                 value={wishText}
                 onChange={(e) => onChangeText(e.target.value)}
                 maxLength={MAX}
+                aria-invalid={!!errorText}
+                aria-describedby={errorText ? "wish-textarea-error" : undefined}
+                style={errorText ? { outline: "none", borderColor: "#ff5a5a" } : undefined}
               />
-              <label
-                className="checkbox"
-                style={{ color: pickTextColor(bgColor), marginTop: 8 }}
-              >
+              {errorText ? (
+                <div
+                  id="wish-textarea-error"
+                  style={{ color: "#ff5a5a", fontSize: 12, marginTop: 6 }}
+                  role="alert"
+                >
+                  {errorText}
+                </div>
+              ) : null}
+              <label className="checkbox" style={{ color: pickTextColor(bgColor), marginTop: 8 }}>
                 <input
                   type="checkbox"
                   checked={isGradient}
@@ -324,11 +292,7 @@ export default function WishModal({
                       marginTop: 6,
                     }}
                   >
-                    <button
-                      type="button"
-                      className="button"
-                      onClick={clearSignature}
-                    >
+                    <button type="button" className="button" onClick={clearSignature}>
                       서명 지우기
                     </button>
                   </div>
@@ -346,7 +310,7 @@ export default function WishModal({
               </div>
 
               <div className="modal__actions">
-                <button type="button" className="button" onClick={onClose}>
+                <button type="button" className="button button--danger" onClick={onClose}>
                   취소
                 </button>
                 <button type="submit" className="button button--primary">

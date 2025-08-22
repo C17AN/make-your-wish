@@ -75,3 +75,31 @@ create table if not exists public.wishes (
   created_at timestamptz not null default now()
 );
 ```
+
+## Supabase SQL (좋아요 기능)
+
+다음 SQL을 Supabase SQL Editor에서 실행하세요.
+
+```sql
+-- 1) wishes 테이블에 likes 칼럼 추가 (기본 0)
+alter table public.wishes
+  add column if not exists likes integer not null default 0;
+
+-- 2) 좋아요 증가용 RPC 함수 (원자적 증가) - UUID 버전
+create or replace function public.increment_wish_likes(p_wish_id uuid)
+returns void
+language sql
+security definer
+set search_path = public
+as $$
+  update public.wishes
+  set likes = likes + 1
+  where id = p_wish_id;
+$$;
+
+-- 권한 부여 (anon 키로 호출 가능하도록)
+revoke all on function public.increment_wish_likes(uuid) from public;
+grant execute on function public.increment_wish_likes(uuid) to anon, authenticated;
+```
+
+프런트엔드에서는 `supabase.rpc("increment_wish_likes", { p_wish_id: <uuid string> })`로 호출합니다.
