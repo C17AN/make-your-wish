@@ -1,70 +1,51 @@
-# React + TypeScript + Vite
+# Make Your Wish
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+![screenshot](./screenshot.gif)
 
-Currently, two official plugins are available:
+익명으로 소원을 남기고, 컬러/그라데이션/서명으로 카드를 꾸며 전광판처럼 흘려보는 웹 앱입니다. Vite + React + TypeScript 기반으로 Supabase를 백엔드로 사용합니다.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## 주요 기능
 
-## Expanding the ESLint configuration
+- 소원 작성(텍스트 최대 50자) 및 카드 배경 컬러 무작위 지정, 그라데이션 옵션
+- 서명 캔버스(선택) 업로드
+- 카드 무한 흐름형 컬럼 뷰(가상 스크롤)
+- 카드 상세 프리뷰(3D 틸트 인터랙션)
+- 카드 좋아요(중복 방지, 낙관적 업데이트, 실패 롤백)
+- 토스트 알림(sonner)
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+## 기술 스택
 
-```js
-export default tseslint.config({
-  extends: [
-    // Remove ...tseslint.configs.recommended and replace with this
-    ...tseslint.configs.recommendedTypeChecked,
-    // Alternatively, use this for stricter rules
-    ...tseslint.configs.strictTypeChecked,
-    // Optionally, add this for stylistic rules
-    ...tseslint.configs.stylisticTypeChecked,
-  ],
-  languageOptions: {
-    // other options...
-    parserOptions: {
-      project: ["./tsconfig.node.json", "./tsconfig.app.json"],
-      tsconfigRootDir: import.meta.dirname,
-    },
-  },
-});
+- React 19, TypeScript, Vite 6
+- Supabase (PostgreSQL, RLS, RPC)
+- @tanstack/react-virtual, framer-motion (motion/react)
+- lucide-react(아이콘), clsx, CSS Modules
+
+## 로컬 실행
+
+```bash
+npm i   # 또는 npm i / yarn
+npm run dev # 또는 npm run dev / pnpm dev
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## 환경 변수
 
-```js
-// eslint.config.js
-import reactX from "eslint-plugin-react-x";
-import reactDom from "eslint-plugin-react-dom";
-
-export default tseslint.config({
-  plugins: {
-    // Add the react-x and react-dom plugins
-    "react-x": reactX,
-    "react-dom": reactDom,
-  },
-  rules: {
-    // other rules...
-    // Enable its recommended typescript rules
-    ...reactX.configs["recommended-typescript"].rules,
-    ...reactDom.configs.recommended.rules,
-  },
-});
-```
-
----
-
-## Supabase 설정
-
-`.env` 또는 `.env.local` 파일에 환경 변수를 설정하세요.
+루트에 `.env` 또는 `.env.local` 파일을 생성:
 
 ```bash
 VITE_SUPABASE_URL=your_supabase_url
 VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
 ```
 
-테이블 스키마 예시:
+## 스크립트
+
+- `dev`: 개발 서버 실행
+- `build`: 타입 체크 + 프로덕션 빌드
+- `preview`: 빌드 미리보기
+- `lint`: ESLint 실행
+
+## 데이터베이스
+
+예시 스키마(Supabase SQL Editor):
 
 ```sql
 create table if not exists public.wishes (
@@ -72,20 +53,31 @@ create table if not exists public.wishes (
   text text not null,
   bg_color text,
   is_gradient boolean,
+  signature_data_url text,
+  likes integer not null default 0,
   created_at timestamptz not null default now()
 );
 ```
 
-## Supabase SQL (좋아요 기능)
-
-다음 SQL을 Supabase SQL Editor에서 실행하세요.
+### RLS 정책(권장)
 
 ```sql
--- 1) wishes 테이블에 likes 칼럼 추가 (기본 0)
-alter table public.wishes
-  add column if not exists likes integer not null default 0;
+alter table public.wishes enable row level security;
+alter table public.wishes force row level security;
 
--- 2) 좋아요 증가용 RPC 함수 (원자적 증가) - UUID 버전
+-- 모두 조회 허용
+create policy wishes_select_public on public.wishes
+for select to anon, authenticated using (true);
+
+-- 작성 허용(원하면 authenticated로 제한)
+create policy wishes_insert_public on public.wishes
+for insert to anon, authenticated with check (true);
+-- update/delete는 정책 미제작 → 기본 차단
+```
+
+### 좋아요 증가 RPC (UUID)
+
+```sql
 create or replace function public.increment_wish_likes(p_wish_id uuid)
 returns void
 language sql
@@ -97,9 +89,14 @@ as $$
   where id = p_wish_id;
 $$;
 
--- 권한 부여 (anon 키로 호출 가능하도록)
 revoke all on function public.increment_wish_likes(uuid) from public;
 grant execute on function public.increment_wish_likes(uuid) to anon, authenticated;
 ```
 
-프런트엔드에서는 `supabase.rpc("increment_wish_likes", { p_wish_id: <uuid string> })`로 호출합니다.
+PostgREST 함수 오버로딩 충돌이 나면 기존 정수 버전을 제거하세요:
+
+```sql
+drop function if exists public.increment_wish_likes(integer);
+```
+
+필요 시 다크/라이트 테마, 컬러 팔레트 프리셋, 서버 사이드 필터/페이지네이션, 이미지 업로드 제한, 신고/차단 정책 등을 추가할 수 있습니다.
